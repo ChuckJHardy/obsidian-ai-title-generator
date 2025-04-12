@@ -1,6 +1,14 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, requestUrl } from 'obsidian';
-
-// Remember to rename these classes and interfaces!
+import {
+	App,
+	Editor,
+	MarkdownView,
+	Modal,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	requestUrl
+} from 'obsidian';
 
 interface AITitlePluginSettings {
 	apiKey: string;
@@ -19,7 +27,7 @@ export default class AITitlePlugin extends Plugin {
 		await this.loadSettings();
 
 		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
+		const ribbonIconEl = this.addRibbonIcon('dice', 'Generate AI Title', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
 			new Notice('This is a notice!');
 		});
@@ -123,7 +131,7 @@ export default class AITitlePlugin extends Plugin {
 		}
 
 		new Notice('Generating title...');
-		
+
 		try {
 			const title = await this.callAnthropicAPI(text);
 			if (title) {
@@ -189,12 +197,12 @@ class SampleModal extends Modal {
 	}
 
 	onOpen() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.setText('Woah!');
 	}
 
 	onClose() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.empty();
 	}
 }
@@ -208,11 +216,11 @@ class AITitleSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'AI Title Generator Settings'});
+		containerEl.createEl('h2', { text: 'AI Title Generator Settings' });
 
 		new Setting(containerEl)
 			.setName('Anthropic API Key')
@@ -224,7 +232,7 @@ class AITitleSettingTab extends PluginSettingTab {
 					this.plugin.settings.apiKey = value;
 					await this.plugin.saveSettings();
 				}));
-		
+
 		new Setting(containerEl)
 			.setName('Max Title Length')
 			.setDesc('Maximum number of characters for the generated title')
