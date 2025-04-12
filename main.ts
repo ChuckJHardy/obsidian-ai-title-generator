@@ -13,11 +13,13 @@ import {
 interface AITitlePluginSettings {
 	apiKey: string;
 	maxTitleLength: number;
+	model: string;
 }
 
 const DEFAULT_SETTINGS: AITitlePluginSettings = {
 	apiKey: '',
-	maxTitleLength: 110
+	maxTitleLength: 110,
+	model: 'claude-3-7-sonnet-latest'
 }
 
 export default class AITitlePlugin extends Plugin {
@@ -94,7 +96,7 @@ export default class AITitlePlugin extends Plugin {
 					'anthropic-version': '2023-06-01'
 				},
 				body: JSON.stringify({
-					model: "claude-3-5-haiku-20241022",
+					model: this.settings.model,
 					max_tokens: 100,
 					temperature: 0.7,
 					messages: [
@@ -166,6 +168,19 @@ class AITitleSettingTab extends PluginSettingTab {
 						this.plugin.settings.maxTitleLength = numValue;
 						await this.plugin.saveSettings();
 					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Model')
+			.setDesc('The model to use for generating the title')
+			.addDropdown(dropdown => dropdown
+				.addOption('claude-3-7-sonnet-latest', 'Claude 3.7 Sonnet')
+				.addOption('claude-3-5-haiku-latest', 'Claude 3.5 Haiku')
+				.addOption('claude-3-opus-latest', 'Claude 3 Opus')
+				.setValue(this.plugin.settings.model)
+				.onChange(async (value) => {
+					this.plugin.settings.model = value;
+					await this.plugin.saveSettings();
 				}));
 	}
 }
