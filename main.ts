@@ -422,6 +422,8 @@ class AITitleSettingTab extends PluginSettingTab {
         .setName('Model')
         .setDesc('The Gemini model to use')
         .addDropdown(dropdown => dropdown
+          .addOption('gemini-2.5-pro-preview-03-25', 'Gemini 2.5 Pro Preview')
+          .addOption('gemini-2.0-flash', 'Gemini 2.0 Flash')
           .addOption('gemini-1.5-pro', 'Gemini 1.5 Pro')
           .addOption('gemini-1.5-flash', 'Gemini 1.5 Flash')
           .setValue(this.plugin.settings.geminiModel)
