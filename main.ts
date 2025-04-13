@@ -48,7 +48,7 @@ export default class AITitlePlugin extends Plugin {
 
     this.addCommand({
       id: 'generate-ai-title',
-      name: 'Generate AI Title',
+      name: 'Generate',
       checkCallback: (checking: boolean) => {
         const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (markdownView) {
