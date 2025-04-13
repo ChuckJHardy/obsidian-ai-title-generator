@@ -2,6 +2,15 @@
 
 A plugin for [Obsidian](https://obsidian.md) that automatically generates concise, descriptive titles for your notes using AI.
 
+## Use Cases
+
+- **Quick Note Capture**: Jot down thoughts without worrying about titles - generate them later
+- **Meeting Notes**: Focus on content during meetings, then generate a descriptive title afterward
+- **Research Notes**: Transform lengthy research notes into clearly titled documents
+- **Journal Entries**: Create meaningful titles from daily journal entries
+- **Imported Content**: Title notes imported from other sources (web clipper, email, etc.)
+- **Consistent Naming**: Maintain a consistent naming convention across your vault
+
 ## Features
 
 - Generate descriptive titles with a single command
