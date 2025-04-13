@@ -65,7 +65,7 @@ This plugin sends your note content to external AI APIs. Please review each prov
 
 ## Support
 
-If you encounter issues or have questions, please file them on [GitHub](https://github.com/chuckjhardy/obsidian-ai-title).
+If you encounter issues or have questions, please file them on [GitHub](https://github.com/chuckjhardy/obsidian-ai-title-generator).
 
 ## Contributing and Development
 
@@ -73,7 +73,7 @@ If you want to customize the plugin or contribute to its development:
 
 1. Clone the repository
 ```bash
-git clone https://github.com/chuckjhardy/obsidian-ai-title
+git clone https://github.com/chuckjhardy/obsidian-ai-title-generator
 cd obsidian-ai-title
 ```
 
