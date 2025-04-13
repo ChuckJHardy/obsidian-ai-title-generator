@@ -106,14 +106,24 @@ export default class AITitlePlugin extends Plugin {
       }
       
       if (title) {
-        const newPath = file.path.replace(/[^/]+$/, `${title}.md`);
+        const sanitizedTitle = this.sanitizeFileName(title);
+        const newPath = file.path.replace(/[^/]+$/, `${sanitizedTitle}.md`);
         await this.app.fileManager.renameFile(file, newPath);
         new Notice('Title updated successfully');
       }
     } catch (error) {
       console.error('Error generating title:', error);
-      new Notice('Failed to generate title. Check console for details.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      new Notice(`Failed to generate title: ${errorMessage}`);
     }
+  }
+
+  sanitizeFileName(fileName: string): string {
+    // Replace characters that are invalid in file names
+    return fileName
+      .replace(/[\\/:*?"<>|]/g, '')  // Remove characters invalid in most file systems
+      .replace(/\.\./g, '.') // Replace consecutive dots
+      .trim();
   }
 
   getApiKey(): string {
@@ -146,15 +156,14 @@ export default class AITitlePlugin extends Plugin {
     try {
       const prompt = this.settings.customPrompt.replace('{maxTitleLength}', this.settings.maxTitleLength.toString());
       
-      const response = await requestUrl({
-        url: 'https://api.anthropic.com/v1/messages',
-        method: 'POST',
-        headers: {
+      const response = await this.makeAPIRequest(
+        'https://api.anthropic.com/v1/messages',
+        {
           'Content-Type': 'application/json',
           'x-api-key': this.settings.anthropicApiKey,
           'anthropic-version': '2023-06-01'
         },
-        body: JSON.stringify({
+        {
           model: this.settings.anthropicModel,
           max_tokens: 100,
           temperature: 0.7,
@@ -168,14 +177,14 @@ export default class AITitlePlugin extends Plugin {
               content: `${text}`
             }
           ]
-        })
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
+        }
+      );
 
       const data = response.json;
+      if (!data.content || !data.content[0] || !data.content[0].text) {
+        throw new Error('Unexpected response format from Anthropic API');
+      }
+      
       return data.content[0].text.trim();
     } catch (error) {
       console.error('Error calling Anthropic API:', error);
@@ -187,14 +196,13 @@ export default class AITitlePlugin extends Plugin {
     try {
       const prompt = this.settings.customPrompt.replace('{maxTitleLength}', this.settings.maxTitleLength.toString());
       
-      const response = await requestUrl({
-        url: 'https://api.openai.com/v1/chat/completions',
-        method: 'POST',
-        headers: {
+      const response = await this.makeAPIRequest(
+        'https://api.openai.com/v1/chat/completions',
+        {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.settings.openaiApiKey}`
         },
-        body: JSON.stringify({
+        {
           model: this.settings.openaiModel,
           max_tokens: 100,
           temperature: 0.7,
@@ -208,14 +216,14 @@ export default class AITitlePlugin extends Plugin {
               content: text
             }
           ]
-        })
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
+        }
+      );
 
       const data = response.json;
+      if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+        throw new Error('Unexpected response format from OpenAI API');
+      }
+      
       return data.choices[0].message.content.trim();
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
@@ -227,15 +235,14 @@ export default class AITitlePlugin extends Plugin {
     try {
       const prompt = this.settings.customPrompt.replace('{maxTitleLength}', this.settings.maxTitleLength.toString());
       
-      const response = await requestUrl({
-        url: 'https://generativelanguage.googleapis.com/v1/models/' + 
-             this.settings.geminiModel + ':generateContent?key=' + 
-             this.settings.geminiApiKey,
-        method: 'POST',
-        headers: {
+      const response = await this.makeAPIRequest(
+        'https://generativelanguage.googleapis.com/v1/models/' + 
+        this.settings.geminiModel + ':generateContent?key=' + 
+        this.settings.geminiApiKey,
+        {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
+        {
           contents: [
             {
               role: "user",
@@ -253,19 +260,47 @@ ${text}`
             temperature: 0.7,
             maxOutputTokens: 100
           }
-        })
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
+        }
+      );
 
       const data = response.json;
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || 
+          !data.candidates[0].content.parts || !data.candidates[0].content.parts[0] || 
+          !data.candidates[0].content.parts[0].text) {
+        throw new Error('Unexpected response format from Gemini API');
+      }
+      
       return data.candidates[0].content.parts[0].text.trim();
     } catch (error) {
       console.error('Error calling Gemini API:', error);
       throw error;
     }
+  }
+
+  async makeAPIRequest(url: string, headers: Record<string, string>, body: any) {
+    const response = await requestUrl({
+      url: url,
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    });
+
+    if (response.status !== 200) {
+      const errorData = response.json;
+      let errorMessage = `API request failed with status ${response.status}`;
+      
+      if (errorData && errorData.error) {
+        if (typeof errorData.error === 'string') {
+          errorMessage += `: ${errorData.error}`;
+        } else if (errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    return response;
   }
 }
 
@@ -309,7 +344,11 @@ class AITitleSettingTab extends PluginSettingTab {
           .setPlaceholder('Enter your API key')
           .setValue(this.plugin.settings.anthropicApiKey)
           .onChange(async (value) => {
-            this.plugin.settings.anthropicApiKey = value;
+            const trimmedValue = value.trim();
+            if (trimmedValue !== value) {
+              new Notice('API key trimmed. Please check for extra spaces.');
+            }
+            this.plugin.settings.anthropicApiKey = trimmedValue;
             await this.plugin.saveSettings();
           }));
 
@@ -338,7 +377,11 @@ class AITitleSettingTab extends PluginSettingTab {
           .setPlaceholder('Enter your API key')
           .setValue(this.plugin.settings.openaiApiKey)
           .onChange(async (value) => {
-            this.plugin.settings.openaiApiKey = value;
+            const trimmedValue = value.trim();
+            if (trimmedValue !== value) {
+              new Notice('API key trimmed. Please check for extra spaces.');
+            }
+            this.plugin.settings.openaiApiKey = trimmedValue;
             await this.plugin.saveSettings();
           }));
 
@@ -367,7 +410,11 @@ class AITitleSettingTab extends PluginSettingTab {
           .setPlaceholder('Enter your API key')
           .setValue(this.plugin.settings.geminiApiKey)
           .onChange(async (value) => {
-            this.plugin.settings.geminiApiKey = value;
+            const trimmedValue = value.trim();
+            if (trimmedValue !== value) {
+              new Notice('API key trimmed. Please check for extra spaces.');
+            }
+            this.plugin.settings.geminiApiKey = trimmedValue;
             await this.plugin.saveSettings();
           }));
 
@@ -392,10 +439,16 @@ class AITitleSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.maxTitleLength.toString())
         .onChange(async (value) => {
           const numValue = parseInt(value);
-          if (!isNaN(numValue)) {
-            this.plugin.settings.maxTitleLength = numValue;
-            await this.plugin.saveSettings();
+          if (isNaN(numValue)) {
+            new Notice('Please enter a valid number for max title length');
+            return;
           }
+          if (numValue < 10 || numValue > 500) {
+            new Notice('Title length should be between 10 and 500 characters');
+            return;
+          }
+          this.plugin.settings.maxTitleLength = numValue;
+          await this.plugin.saveSettings();
         }));
 
     containerEl.createEl('h3', { text: 'Prompt Settings' });
