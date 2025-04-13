@@ -1,8 +1,6 @@
 import {
   App,
-  Editor,
   MarkdownView,
-  Modal,
   Notice,
   Plugin,
   PluginSettingTab,
@@ -25,6 +23,7 @@ interface AITitlePluginSettings {
   anthropicModel: string;
   openaiModel: string;
   geminiModel: string;
+  customPrompt: string;
 }
 
 const DEFAULT_SETTINGS: AITitlePluginSettings = {
@@ -35,7 +34,8 @@ const DEFAULT_SETTINGS: AITitlePluginSettings = {
   maxTitleLength: 110,
   anthropicModel: 'claude-3-7-sonnet-latest',
   openaiModel: 'gpt-4o',
-  geminiModel: 'gemini-1.5-pro'
+  geminiModel: 'gemini-1.5-pro',
+  customPrompt: 'You create concise summaries. Your summaries must:\n- Be exactly one sentence\n- Never exceed {maxTitleLength} characters\n- Avoid names, emojis, links, and colons\n- Focus on behaviors and impact\n- Return only the summary text, nothing else'
 }
 
 export default class AITitlePlugin extends Plugin {
@@ -144,6 +144,8 @@ export default class AITitlePlugin extends Plugin {
 
   async callAnthropicAPI(text: string): Promise<string> {
     try {
+      const prompt = this.settings.customPrompt.replace('{maxTitleLength}', this.settings.maxTitleLength.toString());
+      
       const response = await requestUrl({
         url: 'https://api.anthropic.com/v1/messages',
         method: 'POST',
@@ -159,12 +161,7 @@ export default class AITitlePlugin extends Plugin {
           messages: [
             {
               role: "user",
-              content: `You create concise summaries of performance feedback. Your summaries must:
-- Be exactly one sentence
-- Never exceed ${this.settings.maxTitleLength} characters
-- Avoid names, emojis, links, and colons
-- Focus on behaviors and impact
-- Return only the summary text, nothing else`
+              content: prompt
             },
             {
               role: "user",
@@ -188,6 +185,8 @@ export default class AITitlePlugin extends Plugin {
 
   async callOpenAIAPI(text: string): Promise<string> {
     try {
+      const prompt = this.settings.customPrompt.replace('{maxTitleLength}', this.settings.maxTitleLength.toString());
+      
       const response = await requestUrl({
         url: 'https://api.openai.com/v1/chat/completions',
         method: 'POST',
@@ -202,12 +201,7 @@ export default class AITitlePlugin extends Plugin {
           messages: [
             {
               role: "system",
-              content: `You create concise summaries of performance feedback. Your summaries must:
-- Be exactly one sentence
-- Never exceed ${this.settings.maxTitleLength} characters
-- Avoid names, emojis, links, and colons
-- Focus on behaviors and impact
-- Return only the summary text, nothing else`
+              content: prompt
             },
             {
               role: "user",
@@ -231,6 +225,8 @@ export default class AITitlePlugin extends Plugin {
 
   async callGeminiAPI(text: string): Promise<string> {
     try {
+      const prompt = this.settings.customPrompt.replace('{maxTitleLength}', this.settings.maxTitleLength.toString());
+      
       const response = await requestUrl({
         url: 'https://generativelanguage.googleapis.com/v1/models/' + 
              this.settings.geminiModel + ':generateContent?key=' + 
@@ -245,12 +241,7 @@ export default class AITitlePlugin extends Plugin {
               role: "user",
               parts: [
                 {
-                  text: `You create concise summaries of performance feedback. Your summaries must:
-- Be exactly one sentence
-- Never exceed ${this.settings.maxTitleLength} characters
-- Avoid names, emojis, links, and colons
-- Focus on behaviors and impact
-- Return only the summary text, nothing else
+                  text: `${prompt}
 
 Here is the content to summarize:
 ${text}`
@@ -406,5 +397,33 @@ class AITitleSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }
         }));
+
+    containerEl.createEl('h3', { text: 'Prompt Settings' });
+    
+    new Setting(containerEl)
+      .setName('Customize Prompt')
+      .setDesc('Use {maxTitleLength} as a placeholder for the maximum title length.')
+      .addExtraButton(button => {
+        button
+          .setIcon('reset')
+          .setTooltip('Reset to default prompt')
+          .onClick(async () => {
+            this.plugin.settings.customPrompt = DEFAULT_SETTINGS.customPrompt;
+            await this.plugin.saveSettings();
+            this.display();
+          });
+      })
+      .addTextArea(textarea => {
+        textarea
+          .setPlaceholder('Enter custom prompt')
+          .setValue(this.plugin.settings.customPrompt)
+          .onChange(async (value) => {
+            this.plugin.settings.customPrompt = value;
+            await this.plugin.saveSettings();
+          });
+        textarea.inputEl.style.height = '10em';
+        textarea.inputEl.style.width = '40em';
+        return textarea;
+      });
   }
 }
